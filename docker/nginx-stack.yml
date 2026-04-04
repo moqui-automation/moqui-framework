@@ -1,0 +1,85 @@
+# A Docker Swarm stack with a Nginx cluster.
+#
+# Create the overlay network (optional, stack deploy will create it):
+#     docker network create --driver=overlay servernet
+#
+# Apply labels to nodes:
+#     docker node update --label-add edge_node=true node1
+#     docker node update --label-add edge_node=true node2
+#
+# Create configs:
+#     docker config create nginx.conf ./nginx/nginx-stack.conf
+#     docker config create moqui.conf ./nginx/moqui-stack.conf
+#     docker config create moqui-proxy.conf ./nginx/moqui-proxy-stack.conf
+#
+# Create secrets:
+#     docker secret create moqui-cert ./nginx/certs/fullchain.pem
+#     docker secret create moqui-key ./nginx/certs/privkey.pem
+#
+# Deploy the stack:
+#     docker stack deploy -c nginx-stack.yml moqui-edge
+#
+# Failover is automatic.
+
+networks:
+  servernet:
+    driver: overlay
+    attachable: true
+    
+configs:
+  nginx.conf: { external: true }
+  moqui.conf: { external: true }
+  moqui-proxy.conf: { external: true }
+
+secrets:
+  moqui-cert: { external: true }
+  moqui-key: { external: true }
+
+services:
+  moqui-edge:
+    image: nginx:1.27-alpine
+    networks: [servernet]
+    ports:
+      # Ingress mode (default)
+      # Mesh routing will publish these ports to all nodes.
+      - target: 80
+        published: 80
+        protocol: tcp
+      - target: 443
+        published: 443
+        protocol: tcp
+    configs:
+      - source: nginx.conf
+        target: /etc/nginx/nginx.conf
+      - source: moqui.conf
+        target: /etc/nginx/conf.d/moqui.conf
+      - source: moqui-proxy.conf
+        target: /etc/nginx/snippets/moqui-proxy.conf
+    secrets:
+      - source: moqui-cert
+        target: moqui-cert.pem
+      - source: moqui-key
+        target: moqui-key.pem
+    ulimits:
+        nofile: { soft: 65536, hard: 65536 }
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+        delay: 3s
+        max_attempts: 3
+        window: 30s
+      placement:
+        constraints:
+          - node.labels.edge_node == true
+      resources:
+        limits: { memory: 400M }
+        reservations: { memory: 128M }

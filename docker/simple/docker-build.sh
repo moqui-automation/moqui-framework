@@ -32,6 +32,9 @@ else
     exit 1
 fi
 
+# delete test Python venvs from the copied runtime
+rm -rf runtime/python_venv runtime/**/venv runtime/**/.venv
+
 docker build -t $NAME_TAG --build-arg RUNTIME_IMAGE=$RUNTIME_IMAGE .
 
 if [ -d META-INF ]; then rm -Rf META-INF; fi

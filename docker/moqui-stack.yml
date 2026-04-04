@@ -1,0 +1,146 @@
+# A Docker Swarm stack for a Moqui cluster.
+#
+# Create secrets:
+#     printf "moqui" | docker secret create moqui_db_password -
+#     printf "moqui" | docker secret create moqui_crypt_password -
+#     printf "test-pass" | docker secret create moqui_hazelcast_password -
+#     printf "admin" | docker secret create moqui_search_user -
+#     printf "admin" | docker secret create moqui_search_password -
+#
+# Create secrets for Grafana
+#     printf "admin_super_secret" | docker secret create grafana_admin_password -
+#
+# Create configs for Grafana
+#     docker config create grafana_datasource ./grafana/datasource.yml
+#
+# Deploy:
+#     docker stack deploy -c moqui-stack.yml moqui-server
+
+networks:
+  dbnet: { external: true }
+  searchnet: { external: true }
+  brokernet: { external: true }
+  servernet: { external: true }
+
+configs:
+  grafana_datasource: { external: true }
+
+secrets:
+  moqui_db_password: { external: true }
+  moqui_crypt_password: { external: true }
+  moqui_hazelcast_password: { external: true }
+  moqui_search_user: { external: true }
+  moqui_search_password: { external: true }
+  grafana_admin_password: { external: true }
+
+volumes:
+  moqui-logs:
+  moqui-txlogs:
+  moqui-sessions:
+  grafana-data:
+
+services:
+  moqui-server:
+    image: moqui-prod
+    networks: [servernet, dbnet, searchnet]
+    secrets:
+      - moqui_db_password
+      - moqui_crypt_password
+      - moqui_search_user
+      - moqui_search_password
+      - moqui_hazelcast_password
+    volumes:
+      - moqui-logs:/opt/moqui/runtime/log
+      - moqui-txlogs:/opt/moqui/runtime/txlog
+      - moqui-sessions:/opt/moqui/runtime/sessions
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        export entity_ds_password=$(cat /run/secrets/moqui_db_password)
+        export elasticsearch_user=$(cat /run/secrets/moqui_search_user)
+        export elasticsearch_password=$(cat /run/secrets/moqui_search_password)
+        java -cp . MoquiStart conf=conf/MoquiProductionConf.xml
+    environment:
+      - JAVA_TOOL_OPTIONS=-Xms3G -Xmx3G
+      - instance_purpose=production
+      - entity_ds_db_conf=yugabyte
+      - entity_ds_host=moqui-storage-engine1 # Fallback
+      - entity_ds_url=jdbc:yugabytedb://moqui-storage-engine1:5433,moqui-storage-engine2:5433,moqui-storage-engine3:5433/moqui?loadBalanceHosts=true
+      - entity_ds_port=5433
+      - entity_ds_schema=public
+      - entity_ds_database=moqui
+      - entity_ds_user=moqui
+      # - entity_ds_password_file=/run/secrets/moqui_db_password
+      - entity_ds_crypt_pass_file=/run/secrets/moqui_crypt_password
+      # OpenSearch client
+      - elasticsearch_url=http://moqui-search1:9200,http://moqui-search2:9200,http://moqui-search3:9200
+      # prefix for index names, use something distinct and not 'moqui_' or 'mantle_' which match the beginning of OOTB index names
+      - elasticsearch_index_prefix=default_
+      # Dashboards host (optional; only used if you proxy/embed)
+      - kibana_host=opensearch-dashboards
+      # nginx-proxy populates X-Real-IP with remote_addr by default, better option for outer proxy than X-Forwarded-For which defaults to proxy_add_x_forwarded_for
+      - webapp_client_ip_header=X-Real-IP
+      - default_locale=en_US
+      - default_time_zone=US/Pacific
+      # Hazelcast over TCP
+      - hazelcast_multicast_enabled=false
+      - hazelcast_tcpip_enabled=true
+      - hazelcast_tcpip_members=tasks.moqui-server
+      - hazelcast_group_name=moqui-cluster
+      - hazelcast_group_password_file=/run/secrets/moqui_hazelcast_password
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 30s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits: { memory: 4096M }
+        reservations: { memory: 2048M }
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/status"] 
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+grafana:
+    image: grafana/grafana:latest
+    networks: [servernet, dbnet, searchnet]
+    volumes:
+      - grafana-data:/var/lib/grafana
+    configs:
+      - source: grafana_datasources
+        target: /etc/grafana/datasource/datasource.yml
+    secrets:
+      - grafana_admin_password
+    environment:
+      - GF_SERVER_DOMAIN=localhost 
+      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/grafana/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_SECURITY_COOKIE_SAMESITE=none
+      - GF_SECURITY_COOKIE_SECURE=true
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin 
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/grafana_admin_password      
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [ "node.labels.grafana_dashboards == true" ]
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits: { memory: 1024M }
+        reservations: { memory: 512M }

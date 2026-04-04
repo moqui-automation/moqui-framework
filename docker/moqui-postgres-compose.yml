@@ -1,4 +1,4 @@
-# A Docker Compose application with Moqui, Postgres, OpenSearch, OpenSearch Dashboards, and virtual hosting through
+# A Docker Compose application with Moqui, Postgres, OpenSearch, OpenSearch Dashboards, Grafana and virtual hosting through
 # nginx-proxy supporting multiple moqui instances on different hostnames.
 
 # Run with something like this for detached mode:
@@ -136,5 +136,39 @@ services:
      - moqui-search
     ports:
       - 5601:5601
+    expose:
+      - 127.0.0.1:5601:5601
     environment:
       OPENSEARCH_HOSTS: '["https://moqui-search:9200"]'
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    # user: "0" # starts Grafana as root (setting needed for the UI customizations)
+    ports:
+      # change this as needed to bind to any address or even comment to not expose port outside containers
+      - 3000:3000
+    environment:
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_SECURITY_COOKIE_SAMESITE=none
+      - GF_SECURITY_COOKIE_SECURE=true
+      - GF_SECURITY_CSRF_TRUSTED_ORIGINS=localhost
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin #Viewer
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      # - GF_AUTH_OAUTH_AUTO_LOGIN=true
+      # - GF_SERVER_PROTOCOL=http
+      # - GF_SERVER_DOMAIN=moqui.local
+      - GF_ENABLE_GZIP=true
+      - GF_USERS_DEFAULT_THEME=light
+      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/grafana
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      - GF_LIVE_ALLOWED_ORIGINS=localhost
+      # - GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=...
+      - GF_SECURITY_ADMIN_USER=admin # Default admin username (you can change this)
+      - GF_SECURITY_ADMIN_PASSWORD=admin # Change this!
+      # GF_PLUGINS_PREINSTALL: grafana-clock-panel # For install plugin
+    volumes:
+      - ./grafana/data:/var/lib/grafana
+      - ./grafana/datasource/datasource.yml:/etc/grafana/datasource/datasource.yml

@@ -1,0 +1,22 @@
+apiVersion: 1
+
+datasources:
+  - name: moqui-database
+    type: postgres
+    url: moqui-storage-engine1:5433
+    user: moqui
+    database: moqui
+    jsonData:
+      sslmode: "disable"
+      postgresVersion: 1100
+      timescaledb: false
+    secureJsonData:
+      password: "moqui"
+
+  - name: moqui-search
+    type: elasticsearch
+    url: http://moqui-search1:9200
+    database: "[default_]YYYY.MM.DD"
+    jsonData:
+      esVersion: 7.10.0
+      timeField: "@timestamp"

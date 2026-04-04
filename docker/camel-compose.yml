@@ -1,0 +1,26 @@
+# A Docker Compose application for a Apache Camel cluster.
+
+services:
+  camel-gateway:
+    container_name: camel-gateway
+    # Builds the image using the JVM Dockerfile included in the project
+    build:
+      context: .
+      dockerfile: src/main/docker/Dockerfile.jvm
+    image: moqui-camel-gateway:local
+    restart: unless-stopped
+    ports:
+      - "8081:8081" # Quarkus port
+    environment:
+      - QUARKUS_HTTP_HOST=0.0.0.0
+      - QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://moqui-database:5432/moqui
+      - QUARKUS_DATASOURCE_USERNAME=moqui
+      - QUARKUS_DATASOURCE_PASSWORD=moqui
+      - MQTT_BROKER_URL=tcp://broker.hivemq.com:1883
+      - MOQUI_API_URL=http://moqui-server1:8080/rest/s1/example/examples
+    networks:
+      - moqui_default
+
+networks:
+  moqui_default:
+    external: true

@@ -1,0 +1,83 @@
+# A Docker Swarm stack for a Apache Camel cluster.
+#
+# Create the overlay network (optional, stack deploy will create it):
+#     docker network create --driver=overlay --attachable dbnet
+#     docker network create --driver=overlay --attachable servernet
+#     docker network create --driver=overlay --attachable brokernet
+#
+# Apply labels to nodes.
+#     docker node update --label-add broker_node1=true node1
+#     docker node update --label-add broker_node2=true node2
+#
+# Create configs:
+#     docker config create gateway_mqtt_config ./camel/mqtt.properties
+#
+# Create secrets:
+#     printf "moqui" | docker secret create moqui_user -
+#     printf "moqui" | docker secret create moqui_password -
+#
+# Deploy the stack:
+#     docker build -f src/main/docker/Dockerfile.jvm -t moqui-registry/moqui-camel-gateway:latest .
+#     docker push moqui-registry/moqui-camel-gateway:latest
+#     docker stack deploy -c moqui-camel-gateway-stack.yml moqui-integration
+
+secrets:
+  moqui_password:
+    external: true
+  moqui_user:
+    external: true
+
+configs:
+  gateway_mqtt_config:
+    external: true
+
+networks:
+  dbnet:
+    external: true
+  servernet:
+    external: true
+  brokernet:
+    external: true
+
+services:
+  moqui-camel-gateway:
+    image: my-registry/moqui-camel-gateway:latest
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    networks:
+      - dbnet
+      - servernet
+      - brokernet
+    secrets:
+      - source: moqui_user
+        target: moqui_user
+      - source: moqui_password
+        target: moqui_password    
+    configs:
+      - source: gateway_mqtt_config
+        target: /deployments/config/mqtt.properties
+    environment:
+      - QUARKUS_HTTP_HOST=0.0.0.0
+      - QUARKUS_DATASOURCE_DB_KIND=postgresql
+      - QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://moqui-storage-engine1:5433,moqui-storage-engine2:5433/moqui
+      - QUARKUS_DATASOURCE_USERNAME=${file:/run/secrets/moqui_user}
+      - QUARKUS_DATASOURCE_PASSWORD=${file:/run/secrets/moqui_password}
+      - MOQUI_API_URL=http://moqui-server:8080/rest/s1/example/examples
+      - SMALLRYE_CONFIG_LOCATIONS=/deployments/config/mqtt.properties
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/q/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

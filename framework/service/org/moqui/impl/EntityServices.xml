@@ -415,4 +415,91 @@ along with this software (see the LICENSE.md file). If not, see
             }
         ]]></script></actions>
     </service>
+
+    <!-- ================================================ -->
+    <!-- ========== Sql Services ========== -->
+    <!-- ================================================ -->
+
+    <service verb="run" noun="Sql" authenticate="false">
+        <description>Run SQL query.</description>
+        <in-parameters>
+            <parameter name="groupName" default-value="transactional" required="true"/>
+            <parameter name="sql" required="true">
+                <description>SQL Statement.</description></parameter>
+            <parameter name="limit" default-value="1000" type="Integer"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="columnsList" type="List"/>
+            <parameter name="recordsList" type="List"/>
+            <parameter name="recordsAffected" type="Integer"/>
+        </out-parameters>
+        <actions>
+            <script><![CDATA[
+                import java.sql.Connection
+                import java.sql.Statement
+                import java.sql.ResultSet
+                import java.sql.SQLWarning
+                import org.moqui.context.ExecutionContext
+
+                ExecutionContext ec = context.ec
+
+                ResultSet rs = null
+                columnsList = new ArrayList<ArrayList<String>>()
+                recordsList = new ArrayList<ArrayList<ArrayList>>()
+
+                Connection con = ec.entity.getConnection(groupName)
+                try {
+                    Statement stmt = con.createStatement()
+
+                    for(int i = 0; i < 100; i++) {
+                        // try get 100 ResultSets, avoid infinite loop
+                        boolean isResultSet = i == 0 ? stmt.execute(sql) : stmt.getMoreResults()
+                        // ec.logger.info("$isResultSet")
+
+                        SQLWarning w = stmt.getWarnings()
+                        for (int j = 0; j < 100 && w != null; j++) {
+                            ec.logger.warn(w.getMessage() as String)
+                            w = w.getNextWarning()
+                        }
+
+                        stmt.clearWarnings()
+
+                        if (isResultSet) {
+                            columns = new ArrayList<String>()
+                            records = new ArrayList<ArrayList>()
+                            columnsList.add(columns)
+                            recordsList.add(records)
+                            rs = stmt.getResultSet()
+                            if (rs != null) {
+                                rsmd = rs.getMetaData()
+                                columnCount = rsmd.getColumnCount()
+                                for (i = 1; i <= columnCount; i++) columns.add(rsmd.getColumnName(i))
+
+                                limitReached = false
+                                while (rs.next()) {
+                                    if (limit > 0 && records.size() >= limit) {
+                                        limitReached = true
+                                        break
+                                    }
+                                    record = new ArrayList<Object>(columnCount)
+                                    for (i = 1; i <= columnCount; i++) record.add(rs.getObject(i))
+                                    records.add(record)
+                                }
+                                rs.close()
+                            }
+                        } else {
+                            recordsAffected = stmt.getUpdateCount()
+                        } else {
+                            break
+                        }
+                    }
+                } catch (Exception e) {
+                    ec.message.addMessage("Error running SQL query: ${e.toString()}")
+                } finally {
+                    if (stmt != null) { try { stmt.close() } catch (Exception e) {  ec.message.addMessage("Error closing Jdbc Statement: ${e.toString()}") } }
+                    if (con != null) { try { con.close() } catch (Exception e) { ec.message.addMessage("Error closing Jdbc Connection: ${e.toString()}") } }
+                }
+            ]]></script>
+        </actions>
+    </service>
 </services>
