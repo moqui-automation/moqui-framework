@@ -35,7 +35,14 @@ fi
 # delete test Python venvs from the copied runtime
 rm -rf runtime/python_venv runtime/**/venv runtime/**/.venv
 
-docker build -t $NAME_TAG --build-arg RUNTIME_IMAGE=$RUNTIME_IMAGE .
+# Auto-detect moqui-jep component: if present, enable Python/JEP in the image
+WITH_JEP=false
+if [ -d runtime/component/moqui-jep ]; then
+  echo "moqui-jep component detected: Python/JEP support will be included in the image"
+  WITH_JEP=true
+fi
+
+docker build -t $NAME_TAG --build-arg RUNTIME_IMAGE=$RUNTIME_IMAGE --build-arg WITH_JEP=$WITH_JEP .
 
 if [ -d META-INF ]; then rm -Rf META-INF; fi
 if [ -d WEB-INF ]; then rm -Rf WEB-INF; fi

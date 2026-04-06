@@ -18,20 +18,29 @@ COPY execlib execlib
 COPY runtime runtime
 RUN find /opt/moqui/runtime -type d \( -name 'python_venv' -o -name 'venv' -o -name '.venv' \) -prune -exec rm -rf {} +
 
-# system deps to build/run Python and Jep
+# curl and ca-certificates are always needed (HEALTHCHECK + HTTPS calls)
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-    python3 python3-venv python3-pip python3-dev build-essential curl ca-certificates \
+    && apt-get install -y --no-install-recommends curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# Optional: Python + JEP (Java Embedded Python) support.
+# Enabled automatically when the moqui-jep component is present in the build
+# (docker-build.sh detects runtime/component/moqui-jep and passes WITH_JEP=true).
+# Can also be forced manually: docker build --build-arg WITH_JEP=true ...
+ARG WITH_JEP=false
+RUN if [ "$WITH_JEP" = "true" ]; then \
+      apt-get update \
+      && apt-get install -y --no-install-recommends \
+         python3 python3-venv python3-pip python3-dev build-essential \
+      && rm -rf /var/lib/apt/lists/* \
+      && python3 -m venv /opt/moqui/runtime/python_venv \
+      && /opt/moqui/runtime/python_venv/bin/python -m pip install --upgrade pip \
+      && /opt/moqui/runtime/python_venv/bin/pip install --no-cache-dir numpy \
+      && /opt/moqui/runtime/python_venv/bin/pip install --no-cache-dir jep==4.2.2; \
+    fi
 
 ENV PYTHONNOUSERSITE=1
 ENV PYTHONPATH=
-
-# Create Python venv and install packages (numpy first, then jep)
-RUN python3 -m venv /opt/moqui/runtime/python_venv \
-    && /opt/moqui/runtime/python_venv/bin/python -m pip install --upgrade pip \
-    && /opt/moqui/runtime/python_venv/bin/pip install --no-cache-dir numpy \
-    && /opt/moqui/runtime/python_venv/bin/pip install --no-cache-dir jep==4.2.2
 
 # create user for search and chown corresponding files
 ARG search_name=opensearch
@@ -62,7 +71,7 @@ EXPOSE 9200
 EXPOSE 9300
 # Hazelcast Cluster Port
 EXPOSE 5701
- 
+
 # Copy the entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh

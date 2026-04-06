@@ -44,6 +44,7 @@
     <!-- Properties for the primary (transactional group) datasource -->
 
     <!-- H2 -->
+    <!--
     <default-property name="entity_ds_db_conf" value="h2"/>
     <default-property name="entity_ds_host" value="127.0.0.1"/>
     <default-property name="entity_ds_port" value=""/>
@@ -52,9 +53,10 @@
     <default-property name="entity_ds_schema" value=""/>
     <default-property name="entity_ds_user" value="sa"/>
     <default-property name="entity_ds_password" value="sa" is-secret="true"/>
+    -->
 
     <!-- Uncomment for Postgres -->
-    <!-- 
+    <!--
     <default-property name="entity_ds_db_conf" value="postgres"/>
     <default-property name="entity_ds_host" value="postgres"/>
     <default-property name="entity_ds_port" value="5432"/>
@@ -65,17 +67,15 @@
     <default-property name="entity_ds_password" value="moqui" is-secret="true"/>
     -->
 
-    <!-- Uncomment for Yugabyte -->
-    <!--
+    <!-- Yugabyte -->
     <default-property name="entity_ds_db_conf" value="yugabyte"/>
-    <default-property name="entity_ds_host" value="yugabyte"/>
+    <default-property name="entity_ds_host" value="localhost"/>
     <default-property name="entity_ds_port" value="5433"/>
     <default-property name="entity_ds_database" value="moqui"/>
-    <default-property name="entity_ds_url" value="jdbc:yugabytedb://moqui-storage-engine1:5433,moqui-storage-engine2:5433,moqui-storage-engine3:5433/${entity_ds_database}?loadBalanceHosts=true"/>
+    <default-property name="entity_ds_url" value="jdbc:yugabytedb://localhost:5433,localhost:5434,localhost:5435/${entity_ds_database}?loadBalanceHosts=true"/>
     <default-property name="entity_ds_schema" value="public"/>
     <default-property name="entity_ds_user" value="moqui"/>
     <default-property name="entity_ds_password" value="moqui" is-secret="true"/>
-    -->
 
     <default-property name="entity_ds_crypt_pass" value="MoquiDefaultPassword:CHANGEME" is-secret="true"/>
     <default-property name="entity_ds_crypt_pass_old" value="MoquiDefaultPassword:CHANGEME" is-secret="true"/>
