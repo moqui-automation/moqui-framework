@@ -22,7 +22,7 @@ services:
   camel-gateway:
     container_name: camel-gateway
     build:
-      context: ../moqui-camel-gateway
+      context: ../runtime/moqui-camel-gateway
       dockerfile: src/main/docker/Dockerfile.jvm
     image: moqui-camel-gateway:local
     restart: unless-stopped

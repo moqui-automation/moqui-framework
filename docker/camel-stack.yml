@@ -5,11 +5,16 @@
 #   - moqui-inbound-data  : MQTT/broker → JSON → INSERT PARAMETER_LOG → Moqui REST callback
 #   - moqui-recipe-export : SQL (DeviceRuleSet) → Codesys TXT → SFTP/file
 #
-# Build and push the image first:
-#   cd moqui-camel-gateway
+# The image is built and pushed automatically by GitHub Actions on every push to master:
+#   https://github.com/moqui-automation/moqui-camel-gateway
+#   ghcr.io/moqui-automation/moqui-camel-gateway:latest
+#
+# To build and push manually:
+#   cd runtime/moqui-camel-gateway
 #   mvn package -DskipTests
-#   docker build -f src/main/docker/Dockerfile.jvm -t <registry>/moqui-camel-gateway:latest .
-#   docker push <registry>/moqui-camel-gateway:latest
+#   docker build -f src/main/docker/Dockerfile.jvm \
+#     -t ghcr.io/moqui-automation/moqui-camel-gateway:latest .
+#   docker push ghcr.io/moqui-automation/moqui-camel-gateway:latest
 #
 # Apply node labels (camel gateway nodes):
 #   docker node update --label-add camel_node=true node2
@@ -42,7 +47,7 @@ networks:
 
 services:
   moqui-camel-gateway:
-    image: my-registry/moqui-camel-gateway:latest
+    image: ghcr.io/moqui-automation/moqui-camel-gateway:latest
     networks: [dbnet, servernet, msgnet]
     # No published ports — REST triggers are called internally by Moqui.
     # Expose only if external REST access is needed:
