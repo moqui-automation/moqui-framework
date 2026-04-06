@@ -50,10 +50,12 @@ echo "Installing Docker on nodes"
 # sleep 60
 
 echo "Transferring deployment files to node1"
-run_ssh ${node1} "mkdir -p ~/deploy/nginx/certs"
+run_ssh ${node1} "mkdir -p ~/deploy/nginx/certs ~/deploy/yugabyte ~/deploy/activemq"
 run_scp "*.yml" "${node1}:~/deploy/"
 run_scp "yugabyte" "${node1}:~/deploy/"
 run_scp "grafana" "${node1}:~/deploy/"
+run_scp "activemq/artemis-start.sh" "${node1}:~/deploy/activemq/"
+run_scp "activemq/broker.xml" "${node1}:~/deploy/activemq/"
 run_scp "nginx/*.conf" "${node1}:~/deploy/nginx/"
 run_scp "nginx/certs/*.pem" "${node1}:~/deploy/nginx/certs/"
 
@@ -86,20 +88,27 @@ run_ssh ${node1} "docker node update \
     --label-add search_dashboards=true \
     ${node1_name}"
 
-run_ssh ${node2} "docker node update \
+run_ssh ${node1} "docker node update \
     --label-add edge_node=true \
     --label-add broker_node1=true \
     --label-add db_node2=true \
     --label-add search_node2=true \
-    --label-add grafana_dashboards=true \
+    --label-add grafana_node=true \
     ${node2_name}"
 
-run_ssh ${node3} "docker node update \
+run_ssh ${node1} "docker node update \
     --label-add edge_node=true \
     --label-add broker_node2=true \
     --label-add db_node3=true \
     --label-add search_node3=true \
     ${node3_name}"
+
+echo "Creating bind mount directories on each node"
+for node in ${node1} ${node2} ${node3}; do
+    run_ssh ${node} "sudo mkdir -p /data/yugabyte/data"
+    run_ssh ${node} "sudo mkdir -p /data/opensearch/data /data/opensearch/snapshots"
+    run_ssh ${node} "sudo chown -R 1000:1000 /data/opensearch"
+done
 
 echo "Creating overlay networks"
 run_ssh ${node1} "docker network create --driver overlay --attachable dbnet"
@@ -115,7 +124,9 @@ run_ssh ${node1} "cd ~/deploy && \
     docker config create yb_start_node ./yugabyte/yb-start.sh && \
     docker config create bootstrap_run ./yugabyte/bootstrap-run.sh && \
     docker config create bootstrap ./yugabyte/bootstrap.sh && \
-    docker config create grafana_datasource ./grafana/datasource/datasource.yml &&\
+    docker config create grafana_datasource ./grafana/datasource/datasource.yml && \
+    docker config create artemis_start ./activemq/artemis-start.sh && \
+    docker config create artemis_xml ./activemq/broker.xml && \
     docker secret create moqui-cert ./nginx/certs/fullchain.pem && \
     docker secret create moqui-key ./nginx/certs/privkey.pem && \
     printf 'yugabyte' | docker secret create yb_superuser - && \
@@ -127,13 +138,18 @@ run_ssh ${node1} "cd ~/deploy && \
     printf 'moqui' | docker secret create moqui_search_password - && \
     printf 'test-pass' | docker secret create moqui_hazelcast_password - && \
     printf 'admin' | docker secret create moqui_search_user - && \
-    printf 'admin_super_secret' | docker secret create grafana_admin_password -"
-    # printf 'admin' | docker secret create moqui_search_password - && \
+    printf 'admin_super_secret' | docker secret create grafana_admin_password - && \
+    printf 'artemis' | docker secret create artemis_user - && \
+    printf 'artemis' | docker secret create artemis_password - && \
+    printf 'cluster' | docker secret create artemis_cluster_user - && \
+    printf 'cluster' | docker secret create artemis_cluster_password -"
 
 echo "Deploying Swarm stacks"
 run_ssh ${node1} "cd ~/deploy && docker stack deploy -c yugabyte-stack.yml moqui-db"
 sleep 10
 run_ssh ${node1} "cd ~/deploy && docker stack deploy -c opensearch-stack.yml moqui-search"
+sleep 10
+run_ssh ${node1} "cd ~/deploy && docker stack deploy -c activemq-stack.yml moqui-broker"
 sleep 10
 run_ssh ${node1} "cd ~/deploy && docker stack deploy -c moqui-stack.yml moqui"
 run_ssh ${node1} "cd ~/deploy && docker stack deploy -c nginx-stack.yml moqui-edge"
@@ -141,7 +157,7 @@ run_ssh ${node1} "cd ~/deploy && docker stack deploy -c nginx-stack.yml moqui-ed
 # Check services
 run_ssh ${node1} "docker stack services moqui-search"
 run_ssh ${node1} "docker stack services moqui-db"
-# sshpass -p${SSH_PASS} ssh${node1} "docker stack services moqui-broker"
+run_ssh ${node1} "docker stack services moqui-broker"
 run_ssh ${node1} "docker stack services moqui"
 run_ssh ${node1} "docker stack services moqui-edge"
 

@@ -36,14 +36,15 @@ fi
 
 # Defining extra flags to force binding to 0.0.0.0 (for external UI and SQL query)
 EXTRA_FLAGS="rpc_bind_addresses=0.0.0.0,webserver_interface=0.0.0.0"
-TSERVER_EXTRAS="${EXTRA_FLAGS},pgsql_proxy_bind_address=0.0.0.0"
+# Auto-split: each tablet is split when it reaches 2GB.
+# Keeps write hotspots small and scales transparently as data grows.
+TSERVER_EXTRAS="${EXTRA_FLAGS},pgsql_proxy_bind_address=0.0.0.0,enable_automatic_tablet_splitting=true,tablet_split_size_threshold_bytes=2147483648"
 
 ARGS=(start
   "--base_dir=$BASE_DIR"
   "--advertise_address=$IP"
-  "--ysql_enable_auth=true"
   "--master_flags=$EXTRA_FLAGS"
-  "--tserver_flags=$TSERVER_EXTRAS" 
+  "--tserver_flags=$TSERVER_EXTRAS"
 )
 
 if [[ -n "$JOIN_HOST" ]]; then

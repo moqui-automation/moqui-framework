@@ -15,22 +15,31 @@ multipass list
 
 echo "Installing Docker on nodes"
 for node in node1 node2 node3; do
-    multipass exec $node -- /bin/bash -s < install-docker.sh
-    # multipass stop $node
-    # multipass start $node
+    multipass exec $node -- sudo bash -s < install-docker.sh
 done
+# Restart VMs so docker group membership takes effect
+multipass stop node1 node2 node3
+multipass start node1 node2 node3
+echo "Waiting for VMs to come back up..."
+sleep 20
 
 echo "Transferring deployment files to node1"
-multipass exec node1 -- mkdir -p /home/ubuntu/deploy
-multipass exec node1 -- mkdir -p /home/ubuntu/deploy/nginx
 multipass exec node1 -- mkdir -p /home/ubuntu/deploy/nginx/certs
 multipass exec node1 -- mkdir -p /home/ubuntu/deploy/yugabyte
+multipass exec node1 -- mkdir -p /home/ubuntu/deploy/activemq
+multipass exec node1 -- mkdir -p /home/ubuntu/deploy/grafana/datasource
 
 multipass transfer nginx-stack.yml node1:/home/ubuntu/deploy/
 multipass transfer moqui-stack.yml node1:/home/ubuntu/deploy/
 multipass transfer opensearch-stack.yml node1:/home/ubuntu/deploy/
+multipass transfer activemq-stack.yml node1:/home/ubuntu/deploy/
 multipass transfer yugabyte-stack.yml node1:/home/ubuntu/deploy/
+multipass transfer yugabyte/yb-start.sh node1:/home/ubuntu/deploy/yugabyte/
 multipass transfer yugabyte/bootstrap.sh node1:/home/ubuntu/deploy/yugabyte/
+multipass transfer yugabyte/bootstrap-run.sh node1:/home/ubuntu/deploy/yugabyte/
+multipass transfer activemq/artemis-start.sh node1:/home/ubuntu/deploy/activemq/
+multipass transfer activemq/broker.xml node1:/home/ubuntu/deploy/activemq/
+multipass transfer grafana/datasource/datasource.yml node1:/home/ubuntu/deploy/grafana/datasource/
 
 multipass transfer nginx/nginx-stack.conf node1:/home/ubuntu/deploy/nginx/
 multipass transfer nginx/moqui-stack.conf node1:/home/ubuntu/deploy/nginx/
@@ -71,7 +80,7 @@ multipass exec node1 -- docker node update \
     --label-add broker_node1=true \
     --label-add db_node2=true \
     --label-add search_node2=true \
-    --label-add grafana_dashboards=true \
+    --label-add grafana_node=true \
     node2
 multipass exec node1 -- docker node update \
     --label-add edge_node=true \
@@ -79,6 +88,13 @@ multipass exec node1 -- docker node update \
     --label-add db_node3=true \
     --label-add search_node3=true \
     node3
+
+echo "Creating bind mount directories on each node"
+for node in node1 node2 node3; do
+    multipass exec $node -- sudo mkdir -p /data/yugabyte/data
+    multipass exec $node -- sudo mkdir -p /data/opensearch/data /data/opensearch/snapshots
+    multipass exec $node -- sudo chown -R 1000:1000 /data/opensearch
+done
 
 echo "Creating overlay networks"
 multipass exec node1 -- docker network create --driver overlay --attachable dbnet
@@ -94,7 +110,9 @@ multipass exec node1 -- bash -c "cd /home/ubuntu/deploy && \
     docker config create yb_start_node ./yugabyte/yb-start.sh && \
     docker config create bootstrap_run ./yugabyte/bootstrap-run.sh && \
     docker config create bootstrap ./yugabyte/bootstrap.sh && \
-    docker config create grafana_datasource ./grafana/datasource.yml \
+    docker config create grafana_datasource ./grafana/datasource/datasource.yml && \
+    docker config create artemis_start ./activemq/artemis-start.sh && \
+    docker config create artemis_xml ./activemq/broker.xml && \
     docker secret create moqui-cert ./nginx/certs/fullchain.pem && \
     docker secret create moqui-key ./nginx/certs/privkey.pem && \
     printf 'yugabyte' | docker secret create yb_superuser - && \
@@ -106,23 +124,29 @@ multipass exec node1 -- bash -c "cd /home/ubuntu/deploy && \
     printf 'moqui' | docker secret create moqui_search_password - && \
     printf 'test-pass' | docker secret create moqui_hazelcast_password - && \
     printf 'admin' | docker secret create moqui_search_user - && \
-    printf 'admin' | docker secret create moqui_search_password - && \
-    printf "admin_super_secret" | docker secret create grafana_admin_password -"
+    printf 'admin_super_secret' | docker secret create grafana_admin_password - && \
+    printf 'artemis' | docker secret create artemis_user - && \
+    printf 'artemis' | docker secret create artemis_password - && \
+    printf 'cluster' | docker secret create artemis_cluster_user - && \
+    printf 'cluster' | docker secret create artemis_cluster_password -"
 
 echo "Deploying Swarm stacks"
 multipass exec node1 -- bash -c "cd /home/ubuntu/deploy && docker stack deploy -c yugabyte-stack.yml moqui-db"
-echo "Waiting for DB network..."
+echo "Waiting for DB..."
 sleep 10
 multipass exec node1 -- bash -c "cd /home/ubuntu/deploy && docker stack deploy -c opensearch-stack.yml moqui-search"
-echo "Waiting for Search network..."
+echo "Waiting for Search..."
+sleep 10
+multipass exec node1 -- bash -c "cd /home/ubuntu/deploy && docker stack deploy -c activemq-stack.yml moqui-broker"
+echo "Waiting for Broker..."
 sleep 10
 multipass exec node1 -- bash -c "cd /home/ubuntu/deploy && docker stack deploy -c moqui-stack.yml moqui"
 multipass exec node1 -- bash -c "cd /home/ubuntu/deploy && docker stack deploy -c nginx-stack.yml moqui-edge"
 
 # Check services
-multipass exec node1 -- docker stack services moqui-search
 multipass exec node1 -- docker stack services moqui-db
-# multipass exec node1 -- docker stack services moqui-broker
+multipass exec node1 -- docker stack services moqui-search
+multipass exec node1 -- docker stack services moqui-broker
 multipass exec node1 -- docker stack services moqui
 multipass exec node1 -- docker stack services moqui-edge
 

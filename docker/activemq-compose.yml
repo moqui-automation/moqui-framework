@@ -27,7 +27,7 @@ services:
       ARTEMIS_ROLE: primary
       ARTEMIS_CLUSTER_USER: cluster
       ARTEMIS_CLUSTER_PASSWORD: cluster
-      ARTEMIS_EXPIRY_DELAY_MS: "604800000"
+      ARTEMIS_EXPIRY_DELAY_MS: "172800000" # 2 days
       ARTEMIS_BROKER1_HOST: moqui-broker1
       ARTEMIS_BROKER2_HOST: moqui-broker2
       ARTEMIS_CONNECTOR_HOST: moqui-broker1
@@ -70,7 +70,7 @@ services:
       ARTEMIS_ROLE: backup
       ARTEMIS_CLUSTER_USER: cluster
       ARTEMIS_CLUSTER_PASSWORD: cluster
-      ARTEMIS_EXPIRY_DELAY_MS: "604800000"
+      ARTEMIS_EXPIRY_DELAY_MS: "172800000" # 2 days
       ARTEMIS_BROKER1_HOST: moqui-broker1
       ARTEMIS_BROKER2_HOST: moqui-broker2
       ARTEMIS_CONNECTOR_HOST: moqui-broker2

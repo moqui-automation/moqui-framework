@@ -33,7 +33,7 @@ ARTEMIS_INSTANCE_NAME="${ARTEMIS_INSTANCE:-${HOSTNAME:-artemis}}"
 : "${ARTEMIS_PASSWORD:=artemis}"
 : "${CLUSTER_USER:=cluster}"
 : "${CLUSTER_PASSWORD:=cluster}"
-: "${ARTEMIS_EXPIRY_DELAY_MS:=604800000}" # 7 days
+: "${ARTEMIS_EXPIRY_DELAY_MS:=172800000}" # 2 days
 
 ROLE="${ARTEMIS_ROLE:-}"
 if [[ -z "$ROLE" ]]; then

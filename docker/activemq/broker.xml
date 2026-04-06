@@ -31,6 +31,9 @@
     <disk-scan-period>5000</disk-scan-period>
     <max-disk-usage>90</max-disk-usage>
 
+    <!-- Scan and remove expired messages every 30 seconds -->
+    <message-expiry-scan-period>30000</message-expiry-scan-period>
+
     <!-- Multi-protocol acceptor (CORE/AMQP/STOMP/MQTT/OPENWIRE) -->
     <acceptors>
       <acceptor name="artemis">
@@ -43,13 +46,14 @@
         amqpDuplicateDetection=true
       </acceptor>
 
-      <!-- Dedicated MQTT port -->
+      <!-- Dedicated MQTT port (v3.1, v3.1.1, v5) -->
       <acceptor name="mqtt">
         tcp://0.0.0.0:1883?
         protocols=MQTT;
         tcpSendBufferSize=1048576;
         tcpReceiveBufferSize=1048576;
-        useEpoll=true
+        useEpoll=true;
+        mqttSessionExpiryInterval=172800
       </acceptor>
 
       <!-- Dedicated AMQP port -->

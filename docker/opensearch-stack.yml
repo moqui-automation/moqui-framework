@@ -9,18 +9,25 @@
 #     docker node update --label-add search_node3=true node3
 #     docker node update --label-add search_dashboards=true node1
 #
+# Create bind mount directories on each node (run on EACH physical host):
+#     sudo mkdir -p /data/opensearch/data /data/opensearch/snapshots
+#     sudo chown -R 1000:1000 /data/opensearch   # opensearch runs as UID 1000
+#
 # Deploy:
 #     docker stack deploy -c opensearch-stack.yml moqui-search
 #
 # Remove the stack:
 #     docker stack rm moqui-search
-#     docker volume ls | grep moqui-search
-#     docker volume rm moqui-search_search-data1 moqui-search_search-data2 moqui-search_search-data3
 #
 # Print logs:
 #     docker service logs moqui-search_moqui-search1 --tail 200
 #     docker service logs moqui-search_moqui-search2 --tail 200
 #     docker service logs moqui-search_moqui-search3 --tail 200
+#
+# Register snapshot repository (run once after cluster is up):
+#     curl -X PUT "http://localhost:9200/_snapshot/local_backup" \
+#       -H 'Content-Type: application/json' \
+#       -d '{"type":"fs","settings":{"location":"/usr/share/opensearch/snapshots","compress":true}}'
 
 networks:
   searchnet:
@@ -28,17 +35,9 @@ networks:
     attachable: true
   servernet: { external: true }
 
-volumes:
-  search-data1:
-    driver: local
-  search-data2:
-    driver: local
-  search-data3:
-    driver: local
-
 services:
   moqui-search1:
-    image: opensearchproject/opensearch:2.4.0
+    image: opensearchproject/opensearch:2.19.4
     networks: [searchnet]
     environment:
       - OPENSEARCH_JAVA_OPTS=-Xms1024m -Xmx1024m
@@ -47,14 +46,18 @@ services:
       - node.roles=["master","data","ingest"]
       - discovery.seed_hosts=moqui-search1,moqui-search2,moqui-search3
       - cluster.initial_master_nodes=moqui-search1,moqui-search2,moqui-search3
-      - network.host=_site_
+      - network.host=0.0.0.0
       - bootstrap.memory_lock=true
       - plugins.security.disabled=true
       - DISABLE_INSTALL_DEMO_CONFIG=true
+      - path.repo=/usr/share/opensearch/snapshots
     volumes:
-      - type: volume
-        source: search-data1
+      - type: bind
+        source: /data/opensearch/data
         target: /usr/share/opensearch/data
+      - type: bind
+        source: /data/opensearch/snapshots
+        target: /usr/share/opensearch/snapshots
     ulimits:
       memlock: { soft: -1, hard: -1 }
       nofile: { soft: 65536, hard: 65536 }
@@ -81,7 +84,7 @@ services:
       start_period: 60s
 
   moqui-search2:
-    image: opensearchproject/opensearch:2.4.0
+    image: opensearchproject/opensearch:2.19.4
     networks: [searchnet]
     environment:
       - OPENSEARCH_JAVA_OPTS=-Xms1024m -Xmx1024m
@@ -90,14 +93,18 @@ services:
       - node.roles=["master","data","ingest"]
       - discovery.seed_hosts=moqui-search1,moqui-search2,moqui-search3
       - cluster.initial_master_nodes=moqui-search1,moqui-search2,moqui-search3
-      - network.host=_site_
+      - network.host=0.0.0.0
       - bootstrap.memory_lock=true
       - plugins.security.disabled=true
       - DISABLE_INSTALL_DEMO_CONFIG=true
+      - path.repo=/usr/share/opensearch/snapshots
     volumes:
-      - type: volume
-        source: search-data2
+      - type: bind
+        source: /data/opensearch/data
         target: /usr/share/opensearch/data
+      - type: bind
+        source: /data/opensearch/snapshots
+        target: /usr/share/opensearch/snapshots
     ulimits:
       memlock: { soft: -1, hard: -1 }
       nofile: { soft: 65536, hard: 65536 }
@@ -124,7 +131,7 @@ services:
       start_period: 60s
 
   moqui-search3:
-    image: opensearchproject/opensearch:2.4.0
+    image: opensearchproject/opensearch:2.19.4
     networks: [searchnet]
     environment:
       - OPENSEARCH_JAVA_OPTS=-Xms1024m -Xmx1024m
@@ -133,14 +140,18 @@ services:
       - node.roles=["master","data","ingest"]
       - discovery.seed_hosts=moqui-search1,moqui-search2,moqui-search3
       - cluster.initial_master_nodes=moqui-search1,moqui-search2,moqui-search3
-      - network.host=_site_
+      - network.host=0.0.0.0
       - bootstrap.memory_lock=true
       - plugins.security.disabled=true
       - DISABLE_INSTALL_DEMO_CONFIG=true
+      - path.repo=/usr/share/opensearch/snapshots
     volumes:
-      - type: volume
-        source: search-data3
+      - type: bind
+        source: /data/opensearch/data
         target: /usr/share/opensearch/data
+      - type: bind
+        source: /data/opensearch/snapshots
+        target: /usr/share/opensearch/snapshots
     ulimits:
       memlock: { soft: -1, hard: -1 }
       nofile: { soft: 65536, hard: 65536 }
@@ -167,7 +178,7 @@ services:
       start_period: 60s
 
   opensearch-dashboards:
-    image: opensearchproject/opensearch-dashboards:2.4.0
+    image: opensearchproject/opensearch-dashboards:2.19.4
     networks: [searchnet, servernet]
     environment:
       OPENSEARCH_HOSTS: '["http://moqui-search1:9200","http://moqui-search2:9200","http://moqui-search3:9200"]'

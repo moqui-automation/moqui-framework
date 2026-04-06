@@ -8,6 +8,9 @@
 #     docker node update --label-add db_node2=true node2
 #     docker node update --label-add db_node3=true node3
 #
+# Create bind mount directories on each node (run on EACH physical host):
+#     sudo mkdir -p /data/yugabyte/data
+#
 # Create configs:
 #     docker config create yb_start_node ./yugabyte/yb-start.sh
 #     docker config create bootstrap_run ./yugabyte/bootstrap-run.sh
@@ -24,9 +27,6 @@
 #
 # Remove the stack:
 #     docker stack rm moqui-db
-#     docker volume ls | grep moqui-db
-#     docker volume rm moqui-db_db-data1 moqui-db_db-data2 moqui-db_db-data3 \
-#         moqui-db_db-storage1 moqui-db_db-storage2 moqui-db_db-storage3
 #
 # Print logs:
 #     docker service logs moqui-db_moqui-database1 --tail 200
@@ -34,7 +34,7 @@
 #     docker service logs moqui-db_moqui-database3 --tail 200
 
 configs:
-  yb_start_node: {external: true }
+  yb_start_node: { external: true }
   bootstrap_run: { external: true }
   bootstrap: { external: true }
 
@@ -49,11 +49,6 @@ networks:
     driver: overlay
     attachable: true
 
-volumes:
-  db1: { driver: local }
-  db2: { driver: local }
-  db3: { driver: local }
-
 services:
   # Yugabyte node 1
   moqui-database1:
@@ -61,8 +56,8 @@ services:
     hostname: moqui-database1
     networks: [dbnet]
     volumes:
-      - type: volume
-        source: db1
+      - type: bind
+        source: /data/yugabyte/data
         target: /mnt/disk0
     configs:
       - source: yb_start_node
@@ -71,9 +66,6 @@ services:
     environment:
       YB_BASE_DIR: /mnt/disk0/yb-data
       YB_JOIN: "" # first node: no join
-      # Optional: If you want to use YSQL Connection Manager for connection pooling
-      # YB_ENABLE_YSQL_CONN_MGR: "false"
-      # YB_YSQL_CONN_MGR_PORT: "6433"
     command: ["/usr/local/bin/yb-start.sh"]
     ports:
       - target: 7000 # Master UI
@@ -104,8 +96,8 @@ services:
     hostname: moqui-database2
     networks: [dbnet]
     volumes:
-      - type: volume
-        source: db2
+      - type: bind
+        source: /data/yugabyte/data
         target: /mnt/disk0
     configs:
       - source: yb_start_node
@@ -144,8 +136,8 @@ services:
     hostname: moqui-database3
     networks: [dbnet]
     volumes:
-      - type: volume
-        source: db3
+      - type: bind
+        source: /data/yugabyte/data
         target: /mnt/disk0
     configs:
       - source: yb_start_node
@@ -195,7 +187,7 @@ services:
       - moqui_user
       - moqui_password
     environment:
-      YSQL_HOST: moqui-db_moqui-database1
+      YSQL_HOST: moqui-database1
       YSQL_PORT: "5433"
       MOQUI_DB: moqui
     command: ["/usr/local/bin/bootstrap-run.sh"]

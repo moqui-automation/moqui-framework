@@ -1,13 +1,12 @@
 # A Docker Compose application for a Yugabyte cluster.
+#
+# Bind mount directories (./data/yugabyte/node{1,2,3}) are created automatically
+# by Docker Compose on first run — no manual mkdir needed.
+# For production on physical disks use absolute paths and pre-create them.
 
 networks:
   dbnet:
     driver: bridge
-
-volumes:
-  db1: { driver: local }
-  db2: { driver: local }
-  db3: { driver: local }
 
 services:
   # Yugabyte node 1
@@ -17,7 +16,9 @@ services:
     container_name: moqui-database1
     networks: [dbnet]
     volumes:
-      - db1:/mnt/disk0
+      - type: bind
+        source: ./data/yugabyte/node1
+        target: /mnt/disk0
       - ./yugabyte/yb-start.sh:/usr/local/bin/yb-start.sh:ro
     environment:
       YB_BASE_DIR: /mnt/disk0/yb-data
@@ -42,7 +43,9 @@ services:
     container_name: moqui-database2
     networks: [dbnet]
     volumes:
-      - db2:/mnt/disk0
+      - type: bind
+        source: ./data/yugabyte/node2
+        target: /mnt/disk0
       - ./yugabyte/yb-start.sh:/usr/local/bin/yb-start.sh:ro
     environment:
       YB_BASE_DIR: /mnt/disk0/yb-data
@@ -51,6 +54,7 @@ services:
     ports:
       - "7002:7000"
       - "9002:9000"
+      - "5434:5433" # YSQL (host porta 5434)
     ulimits:
       memlock: -1
       nofile:
@@ -66,7 +70,9 @@ services:
     container_name: moqui-database3
     networks: [dbnet]
     volumes:
-      - db3:/mnt/disk0
+      - type: bind
+        source: ./data/yugabyte/node3
+        target: /mnt/disk0
       - ./yugabyte/yb-start.sh:/usr/local/bin/yb-start.sh:ro
     environment:
       YB_BASE_DIR: /mnt/disk0/yb-data
@@ -75,6 +81,7 @@ services:
     ports:
       - "7003:7000"
       - "9003:9000"
+      - "5435:5433" # YSQL (host porta 5435)
     ulimits:
       memlock: -1
       nofile:
@@ -94,7 +101,6 @@ services:
       - moqui-database3
     volumes:
       - ./yugabyte/bootstrap.sh:/bootstrap/bootstrap.sh:ro
-      - ./yugabyte/bootstrap-run.sh:/usr/local/bin/bootstrap-run.sh:ro
     environment:
       YSQL_HOST: moqui-database1
       YSQL_PORT: "5433"
@@ -103,5 +109,5 @@ services:
       MOQUI_USER: moqui
       MOQUI_PASSWORD: moqui
       MOQUI_DB: moqui
-    command: ["/usr/local/bin/bootstrap-run.sh"]
+    command: ["/bootstrap/bootstrap.sh"]
     restart: "no"
