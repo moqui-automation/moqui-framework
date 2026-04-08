@@ -1,0 +1,48 @@
+# Docker Compose for Moqui Camel Gateway (local development).
+#
+# Attaches to the 'moqui_default' network created by moqui-postgres-compose.yml.
+# Start Moqui first:
+#   docker compose -f moqui-postgres-compose.yml -p moqui up -d
+#
+# Then start the gateway:
+#   cd moqui-camel-gateway
+#   mvn package -DskipTests
+#   docker compose -f ../docker/camel-compose.yml up --build
+#
+# REST trigger examples:
+#   curl -X POST http://localhost:8081/api/camel/outbound/MY_REQUEST
+#   curl -X POST http://localhost:8081/api/camel/recipe/export \
+#        -H 'Content-Type: application/json' \
+#        -d '{"deviceRuleSetId":"RULESET_001","deviceId":"PLC_001"}'
+#
+# Health check:
+#   curl http://localhost:8081/q/health
+
+services:
+  camel-gateway:
+    container_name: camel-gateway
+    build:
+      context: ../runtime/moqui-camel-gateway
+      dockerfile: src/main/docker/Dockerfile.jvm
+    image: moqui-camel-gateway:local
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - QUARKUS_HTTP_HOST=0.0.0.0
+      # Connect to Postgres started by moqui-postgres-compose.yml
+      - QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://moqui-database:5432/moqui
+      - QUARKUS_DATASOURCE_USERNAME=moqui
+      - QUARKUS_DATASOURCE_PASSWORD=moqui
+      # Default: SEDA (in-VM, no broker needed for local dev)
+      # Override to use MQTT: INBOUND_CONSUME_URI=paho-mqtt5:iot/parameters/in?brokerUrl=tcp://broker:1883
+      - INBOUND_CONSUME_URI=seda:moquiInbound
+      - OUTBOUND_PUBLISH_URI=seda:moquiOutbound?waitForTaskToComplete=Never
+      # Moqui REST base URL (for inbound afterDb callback)
+      - MOQUI_API_URL=http://moqui-server:8080/rest/s1
+    networks:
+      - moqui_default
+
+networks:
+  moqui_default:
+    external: true

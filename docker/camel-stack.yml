@@ -1,0 +1,103 @@
+# A Docker Swarm stack for the Moqui Camel Gateway (Quarkus).
+#
+# The gateway replicates the moqui-camel component routes as a standalone service:
+#   - moqui-outbound-data : SQL (DeviceRequestItem) → JSON → MQTT/broker
+#   - moqui-inbound-data  : MQTT/broker → JSON → INSERT PARAMETER_LOG → Moqui REST callback
+#   - moqui-recipe-export : SQL (DeviceRuleSet) → Codesys TXT → SFTP/file
+#
+# The image is built and pushed automatically by GitHub Actions on every push to master:
+#   https://github.com/moqui-automation/moqui-camel-gateway
+#   ghcr.io/moqui-automation/moqui-camel-gateway:latest
+#
+# To build and push manually:
+#   cd runtime/moqui-camel-gateway
+#   mvn package -DskipTests
+#   docker build -f src/main/docker/Dockerfile.jvm \
+#     -t ghcr.io/moqui-automation/moqui-camel-gateway:latest .
+#   docker push ghcr.io/moqui-automation/moqui-camel-gateway:latest
+#
+# Apply node labels (camel gateway nodes):
+#   docker node update --label-add camel_node=true node2
+#   docker node update --label-add camel_node=true node3
+#
+# Create secrets:
+#   printf "moqui" | docker secret create moqui_user -
+#   printf "moqui" | docker secret create moqui_password -
+#
+# Create configs:
+#   docker config create gateway_mqtt_config ./camel/gateway-mqtt.properties
+#
+# Deploy:
+#   docker stack deploy -c camel-stack.yml moqui-camel
+#
+# Remove:
+#   docker stack rm moqui-camel
+
+secrets:
+  moqui_user:     { external: true }
+  moqui_password: { external: true }
+
+configs:
+  gateway_mqtt_config: { external: true }
+
+networks:
+  dbnet:     { external: true }
+  servernet: { external: true }
+  msgnet:    { external: true }
+
+services:
+  moqui-camel-gateway:
+    image: ghcr.io/moqui-automation/moqui-camel-gateway:latest
+    networks: [dbnet, servernet, msgnet]
+    # No published ports — REST triggers are called internally by Moqui.
+    # Expose only if external REST access is needed:
+    # ports:
+    #   - target: 8081
+    #     published: 8081
+    #     protocol: tcp
+    #     mode: host
+    secrets:
+      - source: moqui_user
+        target: moqui_user
+      - source: moqui_password
+        target: moqui_password
+    configs:
+      - source: gateway_mqtt_config
+        # SmallRye Config picks up any .properties file in /deployments/config/
+        target: /deployments/config/gateway-mqtt.properties
+    environment:
+      - QUARKUS_HTTP_HOST=0.0.0.0
+      - QUARKUS_DATASOURCE_DB_KIND=postgresql
+      - QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://moqui-database1:5433,moqui-database2:5433,moqui-database3:5433/moqui
+      # Read credentials from Docker secrets via SmallRye Config file expression
+      - QUARKUS_DATASOURCE_USERNAME=${file:/run/secrets/moqui_user}
+      - QUARKUS_DATASOURCE_PASSWORD=${file:/run/secrets/moqui_password}
+      # Moqui REST API base URL (for inbound afterDb callback)
+      - MOQUI_API_URL=http://moqui-server:8080/rest/s1
+      # External config dir is on the SmallRye Config search path
+      - SMALLRYE_CONFIG_LOCATIONS=/deployments/config
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/q/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.labels.camel_node == true
+        max_replicas_per_node: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 60s
+      resources:
+        limits:       { memory: 512M }
+        reservations: { memory: 256M }
