@@ -14,6 +14,10 @@ build
 /docker/runtime
 /docker/db
 /docker/data/
+<<<<<<< HEAD
+=======
+/docker/yugabyte/data/
+>>>>>>> branch 'master' of git@github.com:moqui-automation/moqui-framework.git
 /docker/elasticsearch/data/nodes
 /docker/opensearch/data/nodes/*
 /docker/opensearch/data/*.conf

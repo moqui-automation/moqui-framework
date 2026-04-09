@@ -146,11 +146,16 @@ services:
     image: grafana/grafana:latest
     container_name: grafana
     restart: unless-stopped
+    # ports:
+    #   published only on localhost so Grafana can be used directly while building dashboards
+    #    - 127.0.0.1:3000:3000
     # Port 3000 is intentionally NOT published externally: access is via Moqui's
     # GrafanaProxy servlet at /grafana (authenticated through Moqui's GrafanaAuthFilter).
     volumes:
       - ./grafana/data:/var/lib/grafana
       - ./grafana/datasource/datasource-compose.yml:/etc/grafana/provisioning/datasources/datasource.yml
+      - ./grafana/provisioning/dashboards/default.yml:/etc/grafana/provisioning/dashboards/default.yml:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
     environment:
       - GF_SECURITY_ALLOW_EMBEDDING=true
       - GF_SECURITY_COOKIE_SAMESITE=none

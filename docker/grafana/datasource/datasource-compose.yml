@@ -5,14 +5,18 @@ apiVersion: 1
 # For production Swarm datasources see datasource.yml.
 
 datasources:
-  - name: moqui-database
+  - uid: moqui-postgres
+    name: moqui-database
     type: postgres
+    access: proxy
     url: moqui-database:5432
     user: moqui
-    database: moqui
+    isDefault: true
+    editable: true
     jsonData:
+      database: "moqui"
       sslmode: "disable"
-      postgresVersion: 1400
+      postgresVersion: 1500
       timescaledb: false
     secureJsonData:
       password: "moqui"

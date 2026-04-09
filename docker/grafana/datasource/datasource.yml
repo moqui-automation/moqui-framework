@@ -10,8 +10,8 @@ datasources:
     # YugabyteDB YSQL is PostgreSQL-compatible; connect to node1 (load-balanced by YB driver internally)
     url: moqui-database1:5433
     user: moqui
-    database: moqui
     jsonData:
+      database: "moqui"
       sslmode: "disable"
       # YugabyteDB reports PostgreSQL 11 compatibility
       postgresVersion: 1100

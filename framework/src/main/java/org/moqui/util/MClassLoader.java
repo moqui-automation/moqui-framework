@@ -313,10 +313,10 @@ public class MClassLoader extends ClassLoader {
             JarEntry jarEntry = jarFile.getJarEntry(resourceName);
             if (jarEntry != null) {
                 try {
-                    String jarFileName = jarFile.getName();
-                    if (jarFileName.contains("\\")) jarFileName = jarFileName.replace('\\', '/');
-                    urlList.add(new URL("jar:file:" + jarFileName + "!/" + jarEntry));
-                } catch (MalformedURLException e) {
+                    File jf = new File(jarFile.getName());
+                    URI jarUri = new URI("jar", jf.toURI().toString() + "!/" + jarEntry, null);
+                    urlList.add(jarUri.toURL());
+                } catch (Exception e) {
                     System.out.println("Error making URL for [" + resourceName + "] in jar [" + jarFile + "]: " + e.toString());
                 }
             }
