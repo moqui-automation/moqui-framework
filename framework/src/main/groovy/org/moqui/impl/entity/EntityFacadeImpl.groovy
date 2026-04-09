@@ -115,13 +115,13 @@ class EntityFacadeImpl implements EntityFacade {
         queryStats = entityFacadeNode.attribute("query-stats") == "true"
 
         int stmtQueueSize = (entityFacadeNode.attribute("worker-pool-queue") ?: "1024") as int
-        int stmtPoolCore  = (entityFacadeNode.attribute("worker-pool-core")  ?: "5") as int
-        int stmtPoolMax   = (entityFacadeNode.attribute("worker-pool-max")   ?: "100") as int
+        int stmtPoolCore = (entityFacadeNode.attribute("worker-pool-core") ?: "5") as int
+        int stmtPoolMax = (entityFacadeNode.attribute("worker-pool-max") ?: "100") as int
         long stmtPoolAlive = (entityFacadeNode.attribute("worker-pool-alive") ?: "60") as long
         logger.info("Initializing Entity statement worker pool with Virtual Threads (MoquiEntityExec): queue ${stmtQueueSize}, core ${stmtPoolCore}, max ${stmtPoolMax}, alive ${stmtPoolAlive}s")
         statementWorkQueue = new ArrayBlockingQueue<>(stmtQueueSize)
         statementExecutor = new ThreadPoolExecutor(stmtPoolCore, stmtPoolMax, stmtPoolAlive, TimeUnit.SECONDS,
-                statementWorkQueue, Thread.ofVirtual().name("MoquiEntityExec-", 1).factory())
+            statementWorkQueue, Thread.ofVirtual().name("MoquiEntityExec-", 1).factory())
         statementExecutor.allowCoreThreadTimeOut(true)
 
         TimeZone theTimeZone = null

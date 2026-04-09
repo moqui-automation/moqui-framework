@@ -44,7 +44,6 @@
     <!-- Properties for the primary (transactional group) datasource -->
 
     <!-- H2 -->
-    <!--
     <default-property name="entity_ds_db_conf" value="h2"/>
     <default-property name="entity_ds_host" value="127.0.0.1"/>
     <default-property name="entity_ds_port" value=""/>
@@ -53,18 +52,20 @@
     <default-property name="entity_ds_schema" value=""/>
     <default-property name="entity_ds_user" value="sa"/>
     <default-property name="entity_ds_password" value="sa" is-secret="true"/>
-    -->
     <!-- Uncomment for Postgres -->
+    <!--
     <default-property name="entity_ds_db_conf" value="postgres"/>
     <default-property name="entity_ds_host" value="localhost"/>
     <default-property name="entity_ds_port" value="5432"/>
     <default-property name="entity_ds_database" value="moqui"/>
+    -->
     <!-- <default-property name="entity_ds_url" value="jdbc:postgresql://moqui-database1:5432,moqui-database2:5432/${entity_ds_database}?targetServerType=primary"/> -->
+    <!--
     <default-property name="entity_ds_url" value="jdbc:postgresql://localhost:5432/${entity_ds_database}"/>
     <default-property name="entity_ds_schema" value="public"/>
     <default-property name="entity_ds_user" value="moqui"/>
     <default-property name="entity_ds_password" value="moqui" is-secret="true"/>
-
+    -->
     <!-- Uncomment for Yugabyte -->
     <!--
     <default-property name="entity_ds_db_conf" value="yugabyte"/>
@@ -95,7 +96,7 @@
     <default-property name="entity_ds_c1_host" value=""/>
     <default-property name="entity_ds_c1_port" value=""/>
     <default-property name="entity_ds_c1_database" value=""/>
-    <default-property name="entity_ds_c1_url" value="jdbc:postgresql://moqui-database2:5432,moqui-database3:5432/${entity_ds_database}?targetServerType=secondary&amp;loadBalanceHosts=true&amp;readOnly=true"/>
+    <!-- <default-property name="entity_ds_c1_url" value="jdbc:postgresql://moqui-database1:5432,moqui-database2:5432/${entity_ds_database}?targetServerType=secondary&amp;loadBalanceHosts=true&amp;readOnly=true"/> -->
     <default-property name="entity_ds_c1_user" value=""/>
     <default-property name="entity_ds_c1_password" value="" is-secret="true"/>
 

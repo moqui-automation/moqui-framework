@@ -94,9 +94,6 @@ create_sharded_tables() {
   log "Pre-creating sharded tables (colocation=false) in ${MOQUI_DB}..."
 
   # PARAMETER_LOG: high-volume append-only log table — needs parallel writes across tablets.
-  # TODO: replace the column list below with the full schema once the entity is defined in MarbleERP.
-  #       Moqui's startup-add-missing will add any columns that are missing from this stub,
-  #       but the PRIMARY KEY must already be correct here.
   local has_table
   has_table="$("$YSQLSH" -h "$YSQL_HOST" -p "$YSQL_PORT" -U "$YSQL_SUPERUSER" -d "$MOQUI_DB" -tAc \
     "SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -109,18 +106,18 @@ create_sharded_tables() {
     #               number-decimal→NUMERIC(26,6), text-short→VARCHAR(63)
     "$YSQLSH" -h "$YSQL_HOST" -p "$YSQL_PORT" -U "$YSQL_SUPERUSER" -d "$MOQUI_DB" -c \
       "CREATE TABLE public.PARAMETER_LOG (
-         PARAMETER_LOG_ID  VARCHAR(40)    NOT NULL,
-         PARAMETER_ID      VARCHAR(40)    NOT NULL,
-         SEQUENCE_NUM      NUMERIC(20,0),
-         OBSERVED_DATE     TIMESTAMP,
-         NUMERIC_VALUE     NUMERIC(26,6),
-         SYMBOLIC_VALUE    VARCHAR(63),
+         PARAMETER_LOG_ID VARCHAR(40) NOT NULL,
+         PARAMETER_ID VARCHAR(40) NOT NULL,
+         SEQUENCE_NUM NUMERIC(20,0),
+         OBSERVED_DATE TIMESTAMP,
+         NUMERIC_VALUE NUMERIC(26,6),
+         SYMBOLIC_VALUE VARCHAR(63),
          PARAMETER_ENUM_ID VARCHAR(40),
          LAST_UPDATED_STAMP TIMESTAMP,
          CONSTRAINT PK_PARAMETER_LOG PRIMARY KEY (PARAMETER_LOG_ID)
        ) WITH (colocation = false) SPLIT INTO ${PARAMETER_LOG_TABLETS} TABLETS;
 
-       CREATE UNIQUE INDEX PLOG_TS  ON public.PARAMETER_LOG (PARAMETER_ID, OBSERVED_DATE);
+       CREATE UNIQUE INDEX PLOG_TS ON public.PARAMETER_LOG (PARAMETER_ID, OBSERVED_DATE);
        CREATE UNIQUE INDEX PLOG_SEQ ON public.PARAMETER_LOG (PARAMETER_ID, SEQUENCE_NUM);
 
        ALTER TABLE public.PARAMETER_LOG OWNER TO ${MOQUI_USER};"

@@ -370,7 +370,7 @@ public class ContextJavaUtil {
         }
     }
     /** Container for the per-key list and its ReentrantLock, used by EntityRecordLock.register/clear to avoid
-     *  synchronized(list) which pins virtual thread carrier threads (JEP 444). */
+     *  synchronized(list) which pins virtual thread carrier threads. */
     public static class ErlListEntry {
         public final ArrayList<EntityRecordLock> list = new ArrayList<>();
         public final ReentrantLock lock = new ReentrantLock();
@@ -666,8 +666,8 @@ public class ContextJavaUtil {
     }
 
     /**
-     * Virtual thread-based ThreadPoolExecutor with safety-net ExecutionContext cleanup.
-     * Keeps the old pool and queue sizing semantics while running tasks on virtual threads.
+     * Virtual thread-based ThreadPoolExecutor with safety-net ExecutionContext cleanup,
+     * with pool and queue sizing semantics.
      */
     public static class VirtualThreadExecutorService extends ThreadPoolExecutor {
         private final ExecutionContextFactoryImpl ecfi;
@@ -677,7 +677,7 @@ public class ContextJavaUtil {
                                             long aliveTime, @NotNull TimeUnit timeUnit, @NotNull BlockingQueue<Runnable> blockingQueue) {
             super(coreSize, maxSize, aliveTime, timeUnit, blockingQueue,
                     Thread.ofVirtual().name(poolName + "-", 1).factory());
-            // Virtual threads should not be pooled (JEP 444): allow core threads to terminate when idle
+            // Virtual threads should not be pooled: allow core threads to terminate when idle
             // so each task gets a fresh virtual thread rather than reusing a pooled one.
             allowCoreThreadTimeOut(true);
             this.ecfi = ecfi;

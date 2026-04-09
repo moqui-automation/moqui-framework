@@ -73,7 +73,7 @@ class ServiceFacadeImpl implements ServiceFacade {
     protected CustomDistributedScheduledExecutor distributedScheduledExecutorService = null
     /** Map of all serviceCallScheduled scheduledFuture (not concelled yet), using taskName as the key. */
     protected final ConcurrentMap<String, ScheduledFuture<?>> scheduledFutureMap = new ConcurrentHashMap<>()
-    
+
     protected final ConcurrentMap<String, List<ServiceCallback>> callbackRegistry = new ConcurrentHashMap<>()
 
     ServiceFacadeImpl(ExecutionContextFactoryImpl ecfi) {
@@ -113,7 +113,6 @@ class ServiceFacadeImpl implements ServiceFacade {
         BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>(jobQueueMax < maxSize ? maxSize : jobQueueMax)
         return new ContextJavaUtil.VirtualThreadExecutorService(ecfi, "MoquiJob", coreSize, maxSize, aliveTime, TimeUnit.SECONDS, workQueue)
     }
-
 
     private CustomScheduledExecutor makeScheduledExecutor() {
         MNode serviceFacadeNode = ecfi.confXmlRoot.first("service-facade")

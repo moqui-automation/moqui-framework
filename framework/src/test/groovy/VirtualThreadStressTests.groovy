@@ -81,10 +81,10 @@ class VirtualThreadStressTests extends Specification {
                 localEc.user.loginUser("john.doe", "moqui")
                 localEc.artifactExecution.disableAuthz()
                 long enumCount = localEc.entity.find("moqui.basic.Enumeration")
-                        .condition("enumTypeId", "DataSourceType").useCache(false).count()
+                    .condition("enumTypeId", "DataSourceType").useCache(false).count()
                 Thread.sleep(120)
                 return [taskNumber: taskNumber, virtual: Thread.currentThread().isVirtual(),
-                        name: Thread.currentThread().getName(), enumCount: enumCount]
+                    name: Thread.currentThread().getName(), enumCount: enumCount]
             } finally {
                 localEc.artifactExecution.enableAuthz()
                 localEc.destroy()
@@ -108,9 +108,9 @@ class VirtualThreadStressTests extends Specification {
         when:
         for (int i = 0; i < taskCount; i++) {
             futures.add(ec.service.async()
-                    .name("org.moqui.impl.UserServices.get#UserAuthcFactorRequired")
-                    .parameters([userId: ec.user.userId])
-                    .callFuture())
+                .name("org.moqui.impl.UserServices.get#UserAuthcFactorRequired")
+                .parameters([userId: ec.user.userId])
+                .callFuture())
         }
         List<Map<String, Object>> results = futures.collect {
             (Map<String, Object>) it.get(60, TimeUnit.SECONDS)
@@ -136,11 +136,11 @@ class VirtualThreadStressTests extends Specification {
                 localEc.user.loginUser("john.doe", "moqui")
                 localEc.artifactExecution.disableAuthz()
                 Map result = localEc.service.sync()
-                        .name("org.moqui.impl.UserServices.get#UserAuthcFactorRequired")
-                        .parameters([userId: localEc.user.userId]).disableAuthz().call()
+                    .name("org.moqui.impl.UserServices.get#UserAuthcFactorRequired")
+                    .parameters([userId: localEc.user.userId]).disableAuthz().call()
                 Thread.sleep(160)
                 return [taskNumber: taskNumber, virtual: Thread.currentThread().isVirtual(),
-                        name: Thread.currentThread().getName(), secondFactorRequired: result.secondFactorRequired]
+                    name: Thread.currentThread().getName(), secondFactorRequired: result.secondFactorRequired]
             } finally {
                 localEc.artifactExecution.enableAuthz()
                 localEc.destroy()
@@ -173,10 +173,10 @@ class VirtualThreadStressTests extends Specification {
                 localEc.artifactExecution.disableAuthz()
                 beganTx = localEc.transaction.begin(60)
                 long enumCount = localEc.entity.find("moqui.basic.Enumeration")
-                        .condition("enumTypeId", "DataSourceType").useCache(false).count()
+                    .condition("enumTypeId", "DataSourceType").useCache(false).count()
                 Thread.sleep(120)
                 return [taskNumber: taskNumber, virtual: Thread.currentThread().isVirtual(),
-                        name: Thread.currentThread().getName(), enumCount: enumCount]
+                    name: Thread.currentThread().getName(), enumCount: enumCount]
             } finally {
                 localEc.transaction.commit(beganTx)
                 localEc.artifactExecution.enableAuthz()
