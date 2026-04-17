@@ -771,9 +771,17 @@ public class ContextJavaUtil {
     }
     // Used in delegation pattern for implementing distributed scheduled executor service
     public static interface CustomDistributedScheduledExecutor {
-        /** Decorate any Callable with a task name to provide naming information to scheduler. */
+        /**
+         * Decorate any Callable with a task name to provide naming information to scheduler.
+         * For Hazelcast-backed implementations this should generally map to NamedTask/TaskUtils.named(...)
+         * so task identity is stable cluster-wide.
+         */
         <V> Callable<V> decorateTask(String taskName, Callable<V> callable);
-        /** Decorate any Runnable with a task name to provide naming information to scheduler. */
+        /**
+         * Decorate any Runnable with a task name to provide naming information to scheduler.
+         * For Hazelcast-backed implementations this should generally map to NamedTask/TaskUtils.named(...)
+         * so task identity is stable cluster-wide.
+         */
         Runnable decorateTask(String taskName, Runnable runnable);
         /** Submits a one-shot task that becomes enabled after the given delay. */
         ScheduledFuture<?> schedule(Runnable command, long delay, TimeUnit unit);
@@ -781,6 +789,17 @@ public class ContextJavaUtil {
         <V> ScheduledFuture<V> schedule(Callable<V> callable, long delay, TimeUnit unit);
         /** Submits a periodic action that becomes enabled first after the given initial delay, and subsequently with the given period; that is, executions will commence after initialDelay, then initialDelay + period, then initialDelay + 2 * period, and so on. */        
         ScheduledFuture<?> scheduleAtFixedRate(Runnable command, long initialDelay, long period, TimeUnit unit);
+        /**
+         * Submits a periodic action that becomes enabled first after the given initial delay, and subsequently
+         * with the given delay between the termination of one execution and the commencement of the next.
+         *
+         * Hazelcast IScheduledExecutorService (5.6) does not provide an equivalent of
+         * ScheduledExecutorService.scheduleWithFixedDelay(...), so implementations backed by Hazelcast
+         * may leave this unsupported and throw UnsupportedOperationException.
+         */
+        default ScheduledFuture<?> scheduleWithFixedDelay(Runnable command, long initialDelay, long delay, TimeUnit unit) {
+            throw new UnsupportedOperationException("scheduleWithFixedDelay is not supported by this distributed scheduled executor");
+        }
         /** Initiates an orderly shutdown in which previously submitted tasks are executed, but no new tasks will be accepted. */
         void shutdown();
         /** Get a ScheduledFuture from the given taskName, if it exists. */

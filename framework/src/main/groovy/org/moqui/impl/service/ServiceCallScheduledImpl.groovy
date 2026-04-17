@@ -150,8 +150,20 @@ class ServiceCallScheduledImpl extends ServiceCallImpl implements ServiceCallSch
                 }
             } else if (delay != null && delay >= 0) {
                 if (useDistributed) {
-                    logger.warn("Method scheduleWithFixedDelay not implemented on distributed scheduler ExecutorService. The service calls will be scheduled local only.")
-                    useDistributed = false
+                    try {
+                        scheduledFuture = sfi.distributedScheduledExecutorService.scheduleWithFixedDelay(
+                                sfi.distributedScheduledExecutorService.decorateTask(taskName, runnable), initialDelay, delay, unit)
+                        if (duration > 0) cancel(true, duration, unit)
+                        // done on distributed scheduler
+                        if (scheduledFuture != null) {
+                            if (logger.traceEnabled) logger.trace("Scheduled distributed fixed-delay service [${taskName}]")
+                            // for distributed scheduled services we rely on remote registry. However, the task is also saved locally.
+                            sfi.putScheduledFuture(taskName, scheduledFuture)
+                            return this
+                        }
+                    } catch (UnsupportedOperationException | AbstractMethodError e) {
+                        logger.warn("Method scheduleWithFixedDelay is not supported by distributed scheduler ExecutorService. The service call [${taskName}] will be scheduled local only.")
+                    }
                 }
                 scheduledFuture = sfi.scheduledExecutor.scheduleWithFixedDelay(runnable, initialDelay, delay, unit)
                 if (duration > 0) cancel(true, duration, unit)
